@@ -54,19 +54,51 @@ class Snake:
 
 
 class Food:
-    def __init__(self):
-        self.position = (random.randint(0, GRID_WIDTH-1), random.randint(0, GRID_HEIGHT-1))
+    def __init__(self, snake_positions=None, obstacles=None):
+        if snake_positions is None:
+            snake_positions = []
+        if obstacles is None:
+            obstacles = []
+        self.position = (0, 0)
+        self.respawn(snake_positions, obstacles)
 
-    def respawn(self, snake_positions):
+    def respawn(self, snake_positions, obstacles):
         while True:
             pos = (random.randint(0, GRID_WIDTH-1), random.randint(0, GRID_HEIGHT-1))
-            if pos not in snake_positions:
+            if pos not in snake_positions and pos not in obstacles:
                 self.position = pos
                 break
 
     def draw(self):
         rect = pygame.Rect(self.position[0]*CELL_SIZE, self.position[1]*CELL_SIZE, CELL_SIZE, CELL_SIZE)
         pygame.draw.rect(screen, RED, rect)
+
+
+class Level:
+    """Represents a game level with speed and obstacles."""
+
+    def __init__(self, number, snake_positions):
+        self.number = number
+        self.speed = 10 + number * 2
+        self.obstacles = self._create_obstacles(number - 1, snake_positions)
+
+    def _create_obstacles(self, count, snake_positions):
+        obstacles = []
+        for _ in range(count):
+            while True:
+                pos = (
+                    random.randint(0, GRID_WIDTH - 1),
+                    random.randint(0, GRID_HEIGHT - 1),
+                )
+                if pos not in snake_positions and pos not in obstacles:
+                    obstacles.append(pos)
+                    break
+        return obstacles
+
+    def draw(self):
+        for pos in self.obstacles:
+            rect = pygame.Rect(pos[0] * CELL_SIZE, pos[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+            pygame.draw.rect(screen, BLUE, rect)
 
 
 def draw_grid():
@@ -83,13 +115,14 @@ def show_text(text, color, x, y):
 
 def main():
     snake = Snake()
-    food = Food()
-    level = 1
+    level_num = 1
+    level = Level(level_num, snake.positions)
+    food = Food(snake.positions, level.obstacles)
     score = 0
     running = True
 
     while running:
-        clock.tick(10 + level*2)
+        clock.tick(level.speed)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -108,18 +141,23 @@ def main():
         except Exception:
             running = False
 
+        if snake.positions[0] in level.obstacles:
+            running = False
+
         if snake.positions[0] == food.position:
             snake.length += 1
             score += 1
             if score % 5 == 0:
-                level += 1
-            food.respawn(snake.positions)
+                level_num += 1
+                level = Level(level_num, snake.positions)
+            food.respawn(snake.positions, level.obstacles)
 
         screen.fill(BLACK)
         draw_grid()
+        level.draw()
         snake.draw()
         food.draw()
-        show_text(f'Score: {score}  Level: {level}', WHITE, 10, 10)
+        show_text(f'Score: {score}  Level: {level_num}', WHITE, 10, 10)
         pygame.display.flip()
 
     pygame.quit()
